@@ -1,8 +1,5 @@
-= Knife EC2
+= Knife NiftyCloud
 
-= DESCRIPTION:
-
-This is the official Opscode Knife plugin for Nifty Cloud. This plugin gives knife the ability to create, bootstrap, and manage Nifty Cloud Servers.
 
 = INSTALLATION:
 
@@ -63,14 +60,12 @@ Outputs a list of all servers in the currently configured AWS account.  <b>PLEAS
 
 Generates instance metadata in meant to be used with Opscode's custom AMIs. This will read your knife configuration <tt>~/.chef/knife.rb</tt> for the validation certificate and Chef server URL to use and output in JSON format. The subcommand also accepts a list of roles/recipes that will be in the node's initial run list.
 
-<b>PLEASE NOTE</b> - Using Opscode's custom AMIs reflect an older way of launching instances in EC2 for Chef and should be considered DEPRECATED. Leveraging this plugins's <tt>knife niftycloud server create</tt> subcommands with a base AMIs directly from your Linux distribution (ie Ubuntu AMIs from Canonical) is much preferred and more flexible.  Although this subcommand will remain, the Opscode custom AMIs are currently out of date.
+<b>PLEASE NOTE</b> - Using Opscode's custom AMIs reflect an older way of launching instances in Nifty Cloud for Chef and should be considered DEPRECATED. Leveraging this plugins's <tt>knife niftycloud server create</tt> subcommands with a base AMIs directly from your Linux distribution (ie Ubuntu AMIs from Canonical) is much preferred and more flexible.  Although this subcommand will remain, the Opscode custom AMIs are currently out of date.
 
-In-depth usage instructions can be found on the {Chef Wiki}[http://wiki.opscode.com/display/chef/EC2+Bootstrap+Fast+Start+Guide].
 
 = LICENSE:
 
-Author:: Adam Jacob (<adam@opscode.com>)
-Copyright:: Copyright (c) 2009-2011 Opscode, Inc.
+Author:: Satoshi Akama(<satoshiakama@gmail.com>)
 License:: Apache License, Version 2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
