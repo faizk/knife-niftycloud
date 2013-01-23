@@ -47,35 +47,40 @@ class Chef
           ui.color('Image', :bold),
           ui.color('SSH Key', :bold),
           ui.color('FireWall', :bold),
-
           ui.color('State', :bold)
         ].flatten.compact
 
         output_column_count = server_list.length
 
-        connection.servers.all.each do |server|
-          server_list << server.name.to_s
-          server_list << server.global_ip_address.to_s
-          server_list << server.private_ip_address.to_s
-          server_list << server.instance_type.to_s
-          server_list << server.image_id.to_s
-          server_list << server.key_name.to_s
-          server_list << server.groups.to_s
+        servers = connection.describe_instances()
 
-          server_list << begin
-            state = server.state.to_s.downcase
-            case state
-            when 'shutting-down','terminated','stopping','stopped'
-              ui.color(state, :red)
-            when 'pending'
-              ui.color(state, :yellow)
-            else
-              ui.color(state, :green)
+        set = servers.reservationSet
+        if set
+          set.item.each do |instance|
+            server = instance.instancesSet.item.first
+            server_list << server.instanceId.to_s
+            server_list << server.ipAddress.to_s
+            server_list << server.privateIpAddress.to_s
+            server_list << server.instanceType.to_s
+            server_list << server.imageId.to_s
+            server_list << server.keyName.to_s
+            server_list << (instance.group ? instance.group.item.first.groupId : '')
+            server_list << server.instanceState.name.to_s
+
+            server_list << begin
+              state = server.state.to_s.downcase
+              case state
+              when 'stopped'
+                ui.color(state, :red)
+              when 'pending'
+                ui.color(state, :yellow)
+              else
+                ui.color(state, :green)
+              end
             end
           end
+          puts ui.list(server_list, :uneven_columns_across, output_column_count)
         end
-        puts ui.list(server_list, :uneven_columns_across, output_column_count)
-
       end
     end
   end

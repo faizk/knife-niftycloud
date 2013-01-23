@@ -32,6 +32,7 @@ class Chef
             require "NIFTY"
             require 'readline'
             require 'chef/json_compat'
+            require 'uri'
           end
 
           option :nifty_cloud_access_key,
@@ -49,10 +50,15 @@ class Chef
       end
 
       def connection
+        uri = URI.parse(Chef::Config[:knife][:nifty_cloud_endpoint_url])
+        server = uri.host
+        path = uri.path
         @connection ||= begin
           connection = NIFTY::Cloud::Base.new(
             :access_key => Chef::Config[:knife][:nifty_cloud_access_key],
-            :secret_key => Chef::Config[:knife][:nifty_cloud_secret_key]
+            :secret_key => Chef::Config[:knife][:nifty_cloud_secret_key],
+            :server     => server,
+            :path       => path
           )
         end
       end
@@ -68,7 +74,7 @@ class Chef
         end
       end
 
-      def validate!(keys=[:nifty_cloud_access_key, :nifty_cloud_secret_access_key])
+      def validate!(keys=[:nifty_cloud_access_key, :nifty_cloud_secret_key])
         errors = []
 
         keys.each do |k|
