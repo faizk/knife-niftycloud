@@ -17,14 +17,14 @@
 #
 
 require File.expand_path('../../spec_helper', __FILE__)
-require 'fog'
+require 'NIFTY'
 require 'chef/knife/bootstrap'
 
-describe Chef::Knife::Ec2ServerCreate do
+describe Chef::Knife::NiftycloudServerCreate do
   before do
-    @knife_ec2_create = Chef::Knife::Ec2ServerCreate.new
-    @knife_ec2_create.initial_sleep_delay = 0
-    @knife_ec2_create.stub!(:tcp_test_ssh).and_return(true)
+    @knife_niftycloud_create = Chef::Knife::NiftycloudServerCreate.new
+    @knife_niftycloud_create.initial_sleep_delay = 0
+    @knife_niftycloud_create.stub!(:tcp_test_ssh).and_return(true)
 
     {
       :image => 'image',
@@ -35,13 +35,13 @@ describe Chef::Knife::Ec2ServerCreate do
       Chef::Config[:knife][key] = value
     end
 
-    @ec2_connection = mock(Fog::Compute::AWS)
-    @ec2_connection.stub_chain(:tags).and_return mock('create', :create => true)
-    @ec2_connection.stub_chain(:images, :get).and_return mock('ami', :root_device_type => 'not_ebs')
-    @ec2_servers = mock()
-    @new_ec2_server = mock()
+    @niftycloud_connection = mock(Fog::Compute::AWS)
+    @niftycloud_connection.stub_chain(:tags).and_return mock('create', :create => true)
+    @niftycloud_connection.stub_chain(:images, :get).and_return mock('ami', :root_device_type => 'not_ebs')
+    @niftycloud_servers = mock()
+    @new_niftycloud_server = mock()
 
-    @ec2_server_attribs = { :id => 'i-39382318',
+    @niftycloud_server_attribs = { :id => 'i-39382318',
                            :flavor_id => 'm1.small',
                            :image_id => 'ami-47241231',
                            :availability_zone => 'us-west-1',
@@ -54,92 +54,92 @@ describe Chef::Knife::Ec2ServerCreate do
                            :private_ip_address => '10.251.75.20',
                            :root_device_type => 'not_ebs' }
 
-    @ec2_server_attribs.each_pair do |attrib, value|
-      @new_ec2_server.stub!(attrib).and_return(value)
+    @niftycloud_server_attribs.each_pair do |attrib, value|
+      @new_niftycloud_server.stub!(attrib).and_return(value)
     end
   end
 
   describe "run" do
     it "creates an EC2 instance and bootstraps it" do
-      @new_ec2_server.should_receive(:wait_for).and_return(true)
-      @ec2_servers.should_receive(:create).and_return(@new_ec2_server)
-      @ec2_connection.should_receive(:servers).and_return(@ec2_servers)
+      @new_niftycloud_server.should_receive(:wait_for).and_return(true)
+      @niftycloud_servers.should_receive(:create).and_return(@new_niftycloud_server)
+      @niftycloud_connection.should_receive(:servers).and_return(@niftycloud_servers)
 
-      Fog::Compute::AWS.should_receive(:new).and_return(@ec2_connection)
+      Fog::Compute::AWS.should_receive(:new).and_return(@niftycloud_connection)
 
-      @knife_ec2_create.stub!(:puts)
-      @knife_ec2_create.stub!(:print)
-      @knife_ec2_create.config[:image] = '12345'
+      @knife_niftycloud_create.stub!(:puts)
+      @knife_niftycloud_create.stub!(:print)
+      @knife_niftycloud_create.config[:image] = '12345'
 
 
       @bootstrap = Chef::Knife::Bootstrap.new
       Chef::Knife::Bootstrap.stub!(:new).and_return(@bootstrap)
       @bootstrap.should_receive(:run)
-      @knife_ec2_create.run
-      @knife_ec2_create.server.should_not == nil
+      @knife_niftycloud_create.run
+      @knife_niftycloud_create.server.should_not == nil
     end
   end
   describe "when setting tags" do
     before do
-      Fog::Compute::AWS.should_receive(:new).and_return(@ec2_connection)
-      @knife_ec2_create.stub!(:bootstrap_for_node).and_return mock("bootstrap", :run => true)
-      @ec2_connection.stub!(:servers).and_return(@ec2_servers)
-      @new_ec2_server.stub!(:wait_for).and_return(true)
-      @ec2_servers.stub!(:create).and_return(@new_ec2_server)
-      @knife_ec2_create.stub!(:puts)
-      @knife_ec2_create.stub!(:print)
+      Fog::Compute::AWS.should_receive(:new).and_return(@niftycloud_connection)
+      @knife_niftycloud_create.stub!(:bootstrap_for_node).and_return mock("bootstrap", :run => true)
+      @niftycloud_connection.stub!(:servers).and_return(@niftycloud_servers)
+      @new_niftycloud_server.stub!(:wait_for).and_return(true)
+      @niftycloud_servers.stub!(:create).and_return(@new_niftycloud_server)
+      @knife_niftycloud_create.stub!(:puts)
+      @knife_niftycloud_create.stub!(:print)
     end
 
     it "sets the Name tag to the instance id by default" do
-      @ec2_connection.tags.should_receive(:create).with(:key => "Name",
-                                                        :value => @new_ec2_server.id,
-                                                        :resource_id => @new_ec2_server.id)
-      @knife_ec2_create.run
+      @niftycloud_connection.tags.should_receive(:create).with(:key => "Name",
+                                                        :value => @new_niftycloud_server.id,
+                                                        :resource_id => @new_niftycloud_server.id)
+      @knife_niftycloud_create.run
     end
 
     it "sets the Name tag to the chef_node_name when given" do
-      @knife_ec2_create.config[:chef_node_name] = "wombat"
-      @ec2_connection.tags.should_receive(:create).with(:key => "Name",
+      @knife_niftycloud_create.config[:chef_node_name] = "wombat"
+      @niftycloud_connection.tags.should_receive(:create).with(:key => "Name",
                                                         :value => "wombat",
-                                                        :resource_id => @new_ec2_server.id)
-      @knife_ec2_create.run
+                                                        :resource_id => @new_niftycloud_server.id)
+      @knife_niftycloud_create.run
     end
 
     it "sets the Name tag to the specified name when given --tags Name=NAME" do
-      @knife_ec2_create.config[:tags] = ["Name=bobcat"]
-      @ec2_connection.tags.should_receive(:create).with(:key => "Name",
+      @knife_niftycloud_create.config[:tags] = ["Name=bobcat"]
+      @niftycloud_connection.tags.should_receive(:create).with(:key => "Name",
                                                         :value => "bobcat",
-                                                        :resource_id => @new_ec2_server.id)
-      @knife_ec2_create.run
+                                                        :resource_id => @new_niftycloud_server.id)
+      @knife_niftycloud_create.run
     end
 
     it "sets arbitrary tags" do
-      @knife_ec2_create.config[:tags] = ["foo=bar"]
-      @ec2_connection.tags.should_receive(:create).with(:key => "foo",
+      @knife_niftycloud_create.config[:tags] = ["foo=bar"]
+      @niftycloud_connection.tags.should_receive(:create).with(:key => "foo",
                                                         :value => "bar",
-                                                        :resource_id => @new_ec2_server.id)
-      @knife_ec2_create.run
+                                                        :resource_id => @new_niftycloud_server.id)
+      @knife_niftycloud_create.run
     end
 
   end
 
   describe "when configuring the bootstrap process" do
     before do
-      @knife_ec2_create.config[:ssh_user] = "ubuntu"
-      @knife_ec2_create.config[:identity_file] = "~/.ssh/aws-key.pem"
-      @knife_ec2_create.config[:ssh_port] = 22
-      @knife_ec2_create.config[:ssh_gateway] = 'bastion.host.com'
-      @knife_ec2_create.config[:chef_node_name] = "blarf"
-      @knife_ec2_create.config[:template_file] = '~/.chef/templates/my-bootstrap.sh.erb'
-      @knife_ec2_create.config[:distro] = 'ubuntu-10.04-magic-sparkles'
-      @knife_ec2_create.config[:run_list] = ['role[base]']
-      @knife_ec2_create.config[:json_attributes] = "{'my_attributes':{'foo':'bar'}"
+      @knife_niftycloud_create.config[:ssh_user] = "ubuntu"
+      @knife_niftycloud_create.config[:identity_file] = "~/.ssh/aws-key.pem"
+      @knife_niftycloud_create.config[:ssh_port] = 22
+      @knife_niftycloud_create.config[:ssh_gateway] = 'bastion.host.com'
+      @knife_niftycloud_create.config[:chef_node_name] = "blarf"
+      @knife_niftycloud_create.config[:template_file] = '~/.chef/templates/my-bootstrap.sh.erb'
+      @knife_niftycloud_create.config[:distro] = 'ubuntu-10.04-magic-sparkles'
+      @knife_niftycloud_create.config[:run_list] = ['role[base]']
+      @knife_niftycloud_create.config[:json_attributes] = "{'my_attributes':{'foo':'bar'}"
 
-      @bootstrap = @knife_ec2_create.bootstrap_for_node(@new_ec2_server, @new_ec2_server.dns_name)
+      @bootstrap = @knife_niftycloud_create.bootstrap_for_node(@new_niftycloud_server, @new_niftycloud_server.dns_name)
     end
 
     it "should set the bootstrap 'name argument' to the hostname of the EC2 server" do
-      @bootstrap.name_args.should == ['ec2-75.101.253.10.compute-1.amazonaws.com']
+      @bootstrap.name_args.should == ['niftycloud-75.101.253.10.compute-1.amazonaws.com']
     end
 
     it "should set the bootstrap 'first_boot_attributes' correctly" do
@@ -171,18 +171,18 @@ describe Chef::Knife::Ec2ServerCreate do
     end
 
     it "configures the bootstrap to use the EC2 server id if no explicit node name is set" do
-      @knife_ec2_create.config[:chef_node_name] = nil
+      @knife_niftycloud_create.config[:chef_node_name] = nil
 
-      bootstrap = @knife_ec2_create.bootstrap_for_node(@new_ec2_server, @new_ec2_server.dns_name)
-      bootstrap.config[:chef_node_name].should == @new_ec2_server.id
+      bootstrap = @knife_niftycloud_create.bootstrap_for_node(@new_niftycloud_server, @new_niftycloud_server.dns_name)
+      bootstrap.config[:chef_node_name].should == @new_niftycloud_server.id
     end
 
     it "configures the bootstrap to use prerelease versions of chef if specified" do
       @bootstrap.config[:prerelease].should be_false
 
-      @knife_ec2_create.config[:prerelease] = true
+      @knife_niftycloud_create.config[:prerelease] = true
 
-      bootstrap = @knife_ec2_create.bootstrap_for_node(@new_ec2_server, @new_ec2_server.dns_name)
+      bootstrap = @knife_niftycloud_create.bootstrap_for_node(@new_niftycloud_server, @new_niftycloud_server.dns_name)
       bootstrap.config[:prerelease].should be_true
     end
 
@@ -198,72 +198,72 @@ describe Chef::Knife::Ec2ServerCreate do
       @bootstrap.config[:template_file].should == '~/.chef/templates/my-bootstrap.sh.erb'
     end
 
-    it "configured the bootstrap to set an ec2 hint (via Chef::Config)" do
-      Chef::Config[:knife][:hints]["ec2"].should_not be_nil
+    it "configured the bootstrap to set an niftycloud hint (via Chef::Config)" do
+      Chef::Config[:knife][:hints]["niftycloud"].should_not be_nil
     end
   end
 
   describe "when validating the command-line parameters" do
     before do
-      Fog::Compute::AWS.stub(:new).and_return(@ec2_connection)
-      @knife_ec2_create.ui.stub!(:error)
+      Fog::Compute::AWS.stub(:new).and_return(@niftycloud_connection)
+      @knife_niftycloud_create.ui.stub!(:error)
     end
 
     it "disallows security group names when using a VPC" do
-      @knife_ec2_create.config[:subnet_id] = 'subnet-1a2b3c4d'
-      @knife_ec2_create.config[:security_group_ids] = 'sg-aabbccdd'
-      @knife_ec2_create.config[:security_groups] = 'groupname'
+      @knife_niftycloud_create.config[:subnet_id] = 'subnet-1a2b3c4d'
+      @knife_niftycloud_create.config[:security_group_ids] = 'sg-aabbccdd'
+      @knife_niftycloud_create.config[:security_groups] = 'groupname'
 
-      lambda { @knife_ec2_create.validate! }.should raise_error SystemExit
+      lambda { @knife_niftycloud_create.validate! }.should raise_error SystemExit
     end
   end
 
   describe "when creating the server definition" do
     before do
-      Fog::Compute::AWS.stub(:new).and_return(@ec2_connection)
+      Fog::Compute::AWS.stub(:new).and_return(@niftycloud_connection)
     end
 
     it "sets the specified security group names" do
-      @knife_ec2_create.config[:security_groups] = ['groupname']
-      server_def = @knife_ec2_create.create_server_def
+      @knife_niftycloud_create.config[:security_groups] = ['groupname']
+      server_def = @knife_niftycloud_create.create_server_def
 
       server_def[:groups].should == ['groupname']
     end
 
     it "sets the specified security group ids" do
-      @knife_ec2_create.config[:security_group_ids] = ['sg-aabbccdd']
-      server_def = @knife_ec2_create.create_server_def
+      @knife_niftycloud_create.config[:security_group_ids] = ['sg-aabbccdd']
+      server_def = @knife_niftycloud_create.create_server_def
 
       server_def[:security_group_ids].should == ['sg-aabbccdd']
     end
 
     it "sets the image id from CLI arguments over knife config" do
-      @knife_ec2_create.config[:image] = "ami-aaa"
+      @knife_niftycloud_create.config[:image] = "ami-aaa"
       Chef::Config[:knife][:image] = "ami-zzz"
-      server_def = @knife_ec2_create.create_server_def
+      server_def = @knife_niftycloud_create.create_server_def
 
       server_def[:image_id].should == "ami-aaa"
     end
 
     it "sets the flavor id from CLI arguments over knife config" do
-      @knife_ec2_create.config[:flavor] = "massive"
+      @knife_niftycloud_create.config[:flavor] = "massive"
       Chef::Config[:knife][:flavor] = "bitty"
-      server_def = @knife_ec2_create.create_server_def
+      server_def = @knife_niftycloud_create.create_server_def
 
       server_def[:flavor_id].should == "massive"
     end
 
     it "sets the availability zone from CLI arguments over knife config" do
-      @knife_ec2_create.config[:availability_zone] = "dis-one"
+      @knife_niftycloud_create.config[:availability_zone] = "dis-one"
       Chef::Config[:knife][:availability_zone] = "dat-one"
-      server_def = @knife_ec2_create.create_server_def
+      server_def = @knife_niftycloud_create.create_server_def
 
       server_def[:availability_zone].should == "dis-one"
     end
 
     it "adds the specified ephemeral device mappings" do
-      @knife_ec2_create.config[:ephemeral] = [ "/dev/sdb", "/dev/sdc", "/dev/sdd", "/dev/sde" ]
-      server_def = @knife_ec2_create.create_server_def
+      @knife_niftycloud_create.config[:ephemeral] = [ "/dev/sdb", "/dev/sdc", "/dev/sdd", "/dev/sde" ]
+      server_def = @knife_niftycloud_create.create_server_def
 
       server_def[:block_device_mapping].should == [{ "VirtualName" => "ephemeral0", "DeviceName" => "/dev/sdb" },
                                                    { "VirtualName" => "ephemeral1", "DeviceName" => "/dev/sdc" },
@@ -274,32 +274,32 @@ describe Chef::Knife::Ec2ServerCreate do
 
   describe "ssh_connect_host" do
     before(:each) do
-      @new_ec2_server.stub!(
+      @new_niftycloud_server.stub!(
         :dns_name => 'public_name',
         :private_ip_address => 'private_ip',
         :custom => 'custom'
       )
-      @knife_ec2_create.stub!(:server => @new_ec2_server)
+      @knife_niftycloud_create.stub!(:server => @new_niftycloud_server)
     end
 
     describe "by default" do
       it 'should use public dns name' do
-        @knife_ec2_create.ssh_connect_host.should == 'public_name'
+        @knife_niftycloud_create.ssh_connect_host.should == 'public_name'
       end
     end
 
     describe "with vpc_mode?" do
       it 'should use private ip' do
-        @knife_ec2_create.stub!(:vpc_mode? => true)
-        @knife_ec2_create.ssh_connect_host.should == 'private_ip'
+        @knife_niftycloud_create.stub!(:vpc_mode? => true)
+        @knife_niftycloud_create.ssh_connect_host.should == 'private_ip'
       end
 
     end
 
     describe "with custom server attribute" do
       it 'should use custom server attribute' do
-        @knife_ec2_create.config[:server_connect_attribute] = 'custom'
-        @knife_ec2_create.ssh_connect_host.should == 'custom'
+        @knife_niftycloud_create.config[:server_connect_attribute] = 'custom'
+        @knife_niftycloud_create.ssh_connect_host.should == 'custom'
       end
     end
   end

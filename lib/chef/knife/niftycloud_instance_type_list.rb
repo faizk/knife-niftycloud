@@ -16,22 +16,21 @@
 # limitations under the License.
 #
 
-require 'chef/knife/ec2_base'
+require 'chef/knife/niftycloud_base'
 
 class Chef
   class Knife
-    class Ec2FlavorList < Knife
+    class NiftycloudInstanceTypeList < Knife
 
-      include Knife::Ec2Base
+      include Knife::NiftycloudBase
 
-      banner "knife ec2 flavor list (options)"
+      banner "knife niftycloud instance-type list (options)"
 
       def run
 
         validate!
 
         flavor_list = [
-          ui.color('ID', :bold),
           ui.color('Name', :bold),
           ui.color('Architecture', :bold),
           ui.color('RAM', :bold),

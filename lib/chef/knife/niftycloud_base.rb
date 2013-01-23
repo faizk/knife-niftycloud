@@ -1,6 +1,6 @@
 #
-# Author:: Seth Chisamore (<schisamo@opscode.com>)
-# Copyright:: Copyright (c) 2011 Opscode, Inc.
+# Author:: Satoshi Akama (<satoshi.akama@gmail.com>)
+# Copyright:: Copyright (c) 2011 Satoshi Akama
 # License:: Apache License, Version 2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,7 @@ require 'chef/knife'
 
 class Chef
   class Knife
-    module Ec2Base
+    module NiftycloudBase
 
       # :nodoc:
       # Would prefer to do this in a rational way, but can't be done b/c of
@@ -29,37 +29,30 @@ class Chef
         includer.class_eval do
 
           deps do
-            require 'fog'
+            require "NIFTY"
             require 'readline'
             require 'chef/json_compat'
           end
 
-          option :aws_access_key_id,
+          option :nifty_cloud_access_key,
             :short => "-A ID",
-            :long => "--aws-access-key-id KEY",
-            :description => "Your AWS Access Key ID",
-            :proc => Proc.new { |key| Chef::Config[:knife][:aws_access_key_id] = key }
+            :long => "--nifty-cloud-access-key KEY",
+            :description => "Your Nifty Cloud Access Key ID",
+            :proc => Proc.new { |key| Chef::Config[:knife][:nifty_cloud_access_key] = key }
 
-          option :aws_secret_access_key,
+          option :nifty_cloud_secret_key,
             :short => "-K SECRET",
-            :long => "--aws-secret-access-key SECRET",
-            :description => "Your AWS API Secret Access Key",
-            :proc => Proc.new { |key| Chef::Config[:knife][:aws_secret_access_key] = key }
-
-          option :region,
-            :long => "--region REGION",
-            :description => "Your AWS region",
-            :proc => Proc.new { |key| Chef::Config[:knife][:region] = key }
+            :long => "--nifty-cloud-secret-key SECRET",
+            :description => "Your Nifty Cloud API Secret Key",
+            :proc => Proc.new { |key| Chef::Config[:knife][:nifty_cloud_secret_key] = key }
         end
       end
 
       def connection
         @connection ||= begin
-          connection = Fog::Compute.new(
-            :provider => 'AWS',
-            :aws_access_key_id => Chef::Config[:knife][:aws_access_key_id],
-            :aws_secret_access_key => Chef::Config[:knife][:aws_secret_access_key],
-            :region => locate_config_value(:region)
+          connection = NIFTY::Cloud::Base.new(
+            :access_key => Chef::Config[:knife][:nifty_cloud_access_key],
+            :secret_key => Chef::Config[:knife][:nifty_cloud_secret_key]
           )
         end
       end
@@ -75,7 +68,7 @@ class Chef
         end
       end
 
-      def validate!(keys=[:aws_access_key_id, :aws_secret_access_key])
+      def validate!(keys=[:nifty_cloud_access_key, :nifty_cloud_secret_access_key])
         errors = []
 
         keys.each do |k|

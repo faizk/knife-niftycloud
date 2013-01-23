@@ -20,13 +20,13 @@ require 'chef/knife'
 
 class Chef
   class Knife
-    class Ec2InstanceData < Knife
-      
+    class NiftycloudServerData < Knife
+
       deps do
         require 'chef/json_compat'
       end
 
-      banner "knife ec2 instance data (options)"
+      banner "knife niftycloud server data (options)"
 
       option :edit,
         :short => "-e",

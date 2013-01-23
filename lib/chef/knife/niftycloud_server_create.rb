@@ -17,62 +17,44 @@
 # limitations under the License.
 #
 
-require 'chef/knife/ec2_base'
+require 'chef/knife/niftycloud_base'
 
 class Chef
   class Knife
-    class Ec2ServerCreate < Knife
+    class NiftycloudServerCreate < Knife
 
-      include Knife::Ec2Base
+      include Knife::NiftycloudBase
 
       deps do
-        require 'fog'
+        require 'NIFTY'
         require 'readline'
         require 'chef/json_compat'
         require 'chef/knife/bootstrap'
         Chef::Knife::Bootstrap.load_deps
       end
 
-      banner "knife ec2 server create (options)"
+      banner "knife niftycloud server create (options)"
 
       attr_accessor :initial_sleep_delay
       attr_reader :server
 
-      option :flavor,
-        :short => "-f FLAVOR",
-        :long => "--flavor FLAVOR",
-        :description => "The flavor of server (m1.small, m1.medium, etc)",
-        :proc => Proc.new { |f| Chef::Config[:knife][:flavor] = f }
+      option :instance_type,
+        :short => "-it instance_type",
+        :long => "--instance-type INSTANCE_TYPE",
+        :description => "The Instance Type of server (small2, medium4, etc)",
+        :proc => Proc.new { |f| Chef::Config[:knife][:instance-type] = it }
 
       option :image,
         :short => "-I IMAGE",
         :long => "--image IMAGE",
-        :description => "The AMI for the server",
+        :description => "The VM Image for the server",
         :proc => Proc.new { |i| Chef::Config[:knife][:image] = i }
 
-      option :security_groups,
-        :short => "-G X,Y,Z",
-        :long => "--groups X,Y,Z",
-        :description => "The security groups for this server; not allowed when using VPC",
+      option :firewall,
+        :short => "-F X,Y,Z",
+        :long => "--firewall X,Y,Z",
+        :description => "The firewall for this server",
         :proc => Proc.new { |groups| groups.split(',') }
-
-      option :security_group_ids,
-        :short => "-g X,Y,Z",
-        :long => "--security-group-ids X,Y,Z",
-        :description => "The security group ids for this server; required when using VPC",
-        :proc => Proc.new { |security_group_ids| security_group_ids.split(',') }
-
-      option :tags,
-        :short => "-T T=V[,T=V,...]",
-        :long => "--tags Tag=Value[,Tag=Value...]",
-        :description => "The tags for this server",
-        :proc => Proc.new { |tags| tags.split(',') }
-
-      option :availability_zone,
-        :short => "-Z ZONE",
-        :long => "--availability-zone ZONE",
-        :description => "The Availability Zone",
-        :proc => Proc.new { |key| Chef::Config[:knife][:availability_zone] = key }
 
       option :chef_node_name,
         :short => "-N NAME",
@@ -137,17 +119,9 @@ class Chef
         :proc => Proc.new { |t| Chef::Config[:knife][:template_file] = t },
         :default => false
 
-      option :ebs_size,
-        :long => "--ebs-size SIZE",
-        :description => "The size of the EBS volume in GB, for EBS-backed instances"
-
-      option :ebs_optimized,
-        :long => "--ebs-optimized",
-        :description => "Enabled optimized EBS I/O"
-
-      option :ebs_no_delete_on_term,
-        :long => "--ebs-no-delete-on-term",
-        :description => "Do not delete EBS volume on instance termination"
+      option :disk_size,
+        :long => "--disk-size SIZE",
+        :description => "The size of the Extra Disk volume in GB"
 
       option :run_list,
         :short => "-r RUN_LIST",
@@ -173,13 +147,6 @@ class Chef
         :boolean => true,
         :default => true
 
-      option :aws_user_data,
-        :long => "--user-data USER_DATA_FILE",
-        :short => "-u USER_DATA_FILE",
-        :description => "The EC2 User Data file to provision the instance with",
-        :proc => Proc.new { |m| Chef::Config[:knife][:aws_user_data] = m },
-        :default => nil
-
       option :hint,
         :long => "--hint HINT_NAME[=HINT_FILE]",
         :description => "Specify Ohai Hint to be set on the bootstrap target.  Use multiple --hint options to specify multiple hints.",
@@ -194,12 +161,6 @@ class Chef
         :description => "Comma separated list of device locations (eg - /dev/sdb) to map ephemeral devices",
         :proc => lambda { |o| o.split(/[\s,]+/) },
         :default => []
-
-      option :server_connect_attribute,
-        :long => "--server-connect-attribute ATTRIBUTE",
-        :short => "-a ATTRIBUTE",
-        :description => "The EC2 server attribute to use for SSH connection",
-        :default => nil
 
       def tcp_test_ssh(hostname, ssh_port)
         tcp_socket = TCPSocket.new(hostname, ssh_port)
@@ -239,11 +200,9 @@ class Chef
           connection.tags.create :key => key, :value => val, :resource_id => @server.id
         end
 
-        msg_pair("Instance ID", @server.id)
-        msg_pair("Flavor", @server.flavor_id)
+        msg_pair("Server Name", @server.name)
+        msg_pair("Instance Type", @server.instance_type)
         msg_pair("Image", @server.image_id)
-        msg_pair("Region", connection.instance_variable_get(:@region))
-        msg_pair("Availability Zone", @server.availability_zone)
 
         # If we don't specify a security group or security group id, Fog will
         # pick the appropriate default one. In case of a VPC we don't know the
@@ -251,13 +210,10 @@ class Chef
         # 'default' is printed if no id was specified.
         printed_security_groups = "default"
         printed_security_groups = @server.groups.join(", ") if @server.groups
-        msg_pair("Security Groups", printed_security_groups) unless vpc_mode? or (@server.groups.nil? and @server.security_group_ids)
+        msg_pair("FireWall", printed_firewall) unless vpc_mode? or (@server.groups.nil)
 
         printed_security_group_ids = "default"
-        printed_security_group_ids = @server.security_group_ids.join(", ") if @server.security_group_ids
-        msg_pair("Security Group Ids", printed_security_group_ids) if vpc_mode? or @server.security_group_ids
 
-        msg_pair("Tags", hashed_tags)
         msg_pair("SSH Key", @server.key_name)
 
         print "\n#{ui.color("Waiting for server", :magenta)}"
@@ -267,13 +223,9 @@ class Chef
 
         puts("\n")
 
-        if vpc_mode?
-          msg_pair("Subnet ID", @server.subnet_id)
-        else
-          msg_pair("Public DNS Name", @server.dns_name)
-          msg_pair("Public IP Address", @server.public_ip_address)
-          msg_pair("Private DNS Name", @server.private_dns_name)
-        end
+        msg_pair("Public DNS Name", @server.dns_name)
+        msg_pair("Global IP Address", @server.public_ip_address)
+
         msg_pair("Private IP Address", @server.private_ip_address)
 
         print "\n#{ui.color("Waiting for sshd", :magenta)}"
@@ -283,42 +235,14 @@ class Chef
         bootstrap_for_node(@server,ssh_connect_host).run
 
         puts "\n"
-        msg_pair("Instance ID", @server.id)
-        msg_pair("Flavor", @server.flavor_id)
+        msg_pair("Server Name", @server.name)
+        msg_pair("Instance Type", @server.instance_type)
         msg_pair("Image", @server.image_id)
-        msg_pair("Region", connection.instance_variable_get(:@region))
-        msg_pair("Availability Zone", @server.availability_zone)
-        msg_pair("Security Groups", printed_security_groups) unless vpc_mode? or (@server.groups.nil? and @server.security_group_ids)
-        msg_pair("Security Group Ids", printed_security_group_ids) if vpc_mode? or @server.security_group_ids
-        msg_pair("Tags", hashed_tags)
+        msg_pair("Firewall", printed_security_groups) unless vpc_mode? or (@server.groups.nil? and @server.security_group_ids)
         msg_pair("SSH Key", @server.key_name)
-        msg_pair("Root Device Type", @server.root_device_type)
-        if @server.root_device_type == "ebs"
-          device_map = @server.block_device_mapping.first
-          msg_pair("Root Volume ID", device_map['volumeId'])
-          msg_pair("Root Device Name", device_map['deviceName'])
-          msg_pair("Root Device Delete on Terminate", device_map['deleteOnTermination'])
 
-          if config[:ebs_size]
-            if ami.block_device_mapping.first['volumeSize'].to_i < config[:ebs_size].to_i
-              volume_too_large_warning = "#{config[:ebs_size]}GB " +
-                          "EBS volume size is larger than size set in AMI of " +
-                          "#{ami.block_device_mapping.first['volumeSize']}GB.\n" +
-                          "Use file system tools to make use of the increased volume size."
-              msg_pair("Warning", volume_too_large_warning, :yellow)
-            end
-          end
-        end
-        if config[:ebs_optimized]
-          msg_pair("EBS is Optimized", @server.ebs_optimized.to_s)
-        end
-        if vpc_mode?
-          msg_pair("Subnet ID", @server.subnet_id)
-        else
-          msg_pair("Public DNS Name", @server.dns_name)
-          msg_pair("Public IP Address", @server.public_ip_address)
-          msg_pair("Private DNS Name", @server.private_dns_name)
-        end
+        msg_pair("Global IP Address", @server.public_ip_address)
+
         msg_pair("Private IP Address", @server.private_ip_address)
         msg_pair("Environment", config[:environment] || '_default')
         msg_pair("Run List", (config[:run_list] || []).join(', '))
@@ -341,19 +265,11 @@ class Chef
         bootstrap.config[:use_sudo] = true unless config[:ssh_user] == 'root'
         bootstrap.config[:template_file] = locate_config_value(:template_file)
         bootstrap.config[:environment] = config[:environment]
-        # may be needed for vpc_mode
-        bootstrap.config[:host_key_verify] = config[:host_key_verify]
         # Modify global configuration state to ensure hint gets set by
         # knife-bootstrap
         Chef::Config[:knife][:hints] ||= {}
-        Chef::Config[:knife][:hints]["ec2"] ||= {}
+        Chef::Config[:knife][:hints]["nifty-cloud"] ||= {}
         bootstrap
-      end
-
-      def vpc_mode?
-        # Amazon Virtual Private Cloud requires a subnet_id. If
-        # present, do a few things differently
-        !!locate_config_value(:subnet_id)
       end
 
       def ami
@@ -376,20 +292,10 @@ class Chef
 
       end
 
-      def tags
-       tags = locate_config_value(:tags)
-        if !tags.nil? and tags.length != tags.to_s.count('=')
-          ui.error("Tags should be entered in a key = value pair")
-          exit 1
-        end
-       tags
-      end
-
       def create_server_def
         server_def = {
           :image_id => locate_config_value(:image),
           :groups => config[:security_groups],
-          :security_group_ids => locate_config_value(:security_group_ids),
           :flavor_id => locate_config_value(:flavor),
           :key_name => Chef::Config[:knife][:aws_ssh_key_id],
           :availability_zone => locate_config_value(:availability_zone)
@@ -403,45 +309,6 @@ class Chef
             ui.warn("Cannot read #{Chef::Config[:knife][:aws_user_data]}: #{$!.inspect}. Ignoring option.")
           end
         end
-
-        if config[:ebs_optimized]
-          server_def[:ebs_optimized] = "true"
-        else
-          server_def[:ebs_optimized] = "false"
-        end
-
-        if ami.root_device_type == "ebs"
-          ami_map = ami.block_device_mapping.first
-          ebs_size = begin
-                       if config[:ebs_size]
-                         Integer(config[:ebs_size]).to_s
-                       else
-                         ami_map["volumeSize"].to_s
-                       end
-                     rescue ArgumentError
-                       puts "--ebs-size must be an integer"
-                       msg opt_parser
-                       exit 1
-                     end
-          delete_term = if config[:ebs_no_delete_on_term]
-                          "false"
-                        else
-                          ami_map["deleteOnTermination"]
-                        end
-
-          server_def[:block_device_mapping] =
-            [{
-               'DeviceName' => ami_map["deviceName"],
-               'Ebs.VolumeSize' => ebs_size,
-               'Ebs.DeleteOnTermination' => delete_term
-             }]
-        end
-
-        (config[:ephemeral] || []).each_with_index do |device_name, i|
-          server_def[:block_device_mapping] = (server_def[:block_device_mapping] || []) << {'VirtualName' => "ephemeral#{i}", 'DeviceName' => device_name}
-        end
-
-        server_def
       end
 
       def wait_for_sshd(hostname)
