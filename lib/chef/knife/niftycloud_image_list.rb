@@ -20,32 +20,33 @@ require 'chef/knife/niftycloud_base'
 
 class Chef
   class Knife
-    class NiftycloudInstanceTypeList < Knife
+    class NiftycloudImageList < Knife
 
       include Knife::NiftycloudBase
 
-      banner "knife niftycloud instance-type list (options)"
+      banner "knife niftycloud image list (options)"
 
       def run
 
         validate!
 
-        flavor_list = [
-          ui.color('Name', :bold),
+        image_list = [
+          ui.color('Image Id', :bold),
           ui.color('Architecture', :bold),
-          ui.color('RAM', :bold),
-          ui.color('Disk', :bold),
-          ui.color('Cores', :bold)
+          ui.color('Owner', :bold),
+          ui.color('isPublic', :bold),
+          ui.color('Name', :bold)
         ]
-        connection.flavors.sort_by(&:id).each do |flavor|
-          flavor_list << flavor.id.to_s
-          flavor_list << flavor.name
-          flavor_list << "#{flavor.bits.to_s}-bit"
-          flavor_list << "#{flavor.ram.to_s}"
-          flavor_list << "#{flavor.disk.to_s} GB"
-          flavor_list << flavor.cores.to_s
+        output_column_count = image_list.length
+
+        connection.describe_images.imagesSet.item.each do |image|
+          image_list << image.imageId
+          image_list << image.architecture
+          image_list << "#{image.imageOwnerId}"
+          image_list << (image.isPublic ? 'public' : 'private')
+          image_list << image.name
         end
-        puts ui.list(flavor_list, :columns_across, 6)
+        puts ui.list(image_list, :columns_across, output_column_count)
       end
     end
   end
