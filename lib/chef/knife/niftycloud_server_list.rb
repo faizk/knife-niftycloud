@@ -41,15 +41,16 @@ class Chef
 
         server_list = [
           ui.color('Server Name', :bold),
+          ui.color('IP Type', :bold),
           ui.color('Global IP', :bold),
           ui.color('Private IP', :bold),
+          ui.color('Private DNS Name', :bold),
           ui.color('Instance Type', :bold),
           ui.color('Image', :bold),
           ui.color('SSH Key', :bold),
           ui.color('FireWall', :bold),
           ui.color('State', :bold)
-        ].flatten.compact
-
+        ]
         output_column_count = server_list.length
 
         servers = connection.describe_instances()
@@ -58,17 +59,18 @@ class Chef
         if set
           set.item.each do |instance|
             server = instance.instancesSet.item.first
-            server_list << server.instanceId.to_s
-            server_list << server.ipAddress.to_s
-            server_list << server.privateIpAddress.to_s
-            server_list << server.instanceType.to_s
-            server_list << server.imageId.to_s
-            server_list << server.keyName.to_s
-            server_list << (instance.group ? instance.group.item.first.groupId : '')
-            server_list << server.instanceState.name.to_s
+            server_list << server.instanceId
+            server_list << server.ipType
+            server_list << server.ipAddress
+            server_list << server.privateIpAddress
+            server_list << server.privateDnsName
+            server_list << server.instanceType
+            server_list << server.imageId
+            server_list << server.keyName
+            server_list << (instance.groupSet ? instance.groupSet.item.first.groupId : '')
 
             server_list << begin
-              state = server.state.to_s.downcase
+              state = server.instanceState.name
               case state
               when 'stopped'
                 ui.color(state, :red)
@@ -79,7 +81,7 @@ class Chef
               end
             end
           end
-          puts ui.list(server_list, :uneven_columns_across, output_column_count)
+          puts ui.list(server_list, :columns_across, output_column_count)
         end
       end
     end
