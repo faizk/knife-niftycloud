@@ -58,20 +58,19 @@ class Chef
         set = servers.reservationSet
         if set
           set.item.each do |instance|
-
             server = instance.instancesSet.item.first
-            server_list << server.instanceId
-            server_list << server.ipType
+            server_list << (server.instanceId.nil? ? '' : server.instanceId)
+            server_list << (server.ipType.nil? ? '' : server.ipType)
             server_list << (server.ipAddress.nil? ? '' : server.ipAddress)
             server_list << (server.privateIpAddress.nil? ? '' : server.privateIpAddress)
             server_list << (server.privateDnsName.nil? ? '' : server.privateDnsName)
-            server_list << server.instanceType
-            server_list << server.imageId
+            server_list << (server.instanceType.nil? ? '' : server.instanceType)
+            server_list << (server.imageId.nil? ? '' : server.imageId)
             server_list << (server.keyName.nil? ? '' : server.keyName)
             server_list << (instance.groupSet.nil? ? '' : instance.groupSet.item.first.groupId)
 
             server_list << begin
-              state = server.instanceState.name
+              state = (server.instanceState.name.nil? ? '' : server.instanceState.name)
               case state
               when 'stopped'
                 ui.color(state, :red)
