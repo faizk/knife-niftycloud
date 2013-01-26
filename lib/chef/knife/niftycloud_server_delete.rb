@@ -96,7 +96,9 @@ class Chef
                 state = @server.instanceState.name
                 sleep 5
               end
-            elsif is_not_deletable != 'false'
+            end
+
+            if is_not_deletable != 'false'
               connection.modify_instance_attribute(:instance_id => @server.instanceId, :attribute => 'disableApiTermination', :value => 'false')
               while is_not_deletable != 'false'
                 puts "."
