@@ -64,36 +64,61 @@ class Chef
 
         validate!
 
-        @name_args.each do |instance_id|
-
+        @name_args.each do |server_name|
           begin
-            @server = connection.servers.get(instance_id)
+            @response = connection.describe_instances(:instance_id => server_name)
+            @server = @response.reservationSet.item.first.instancesSet.item.first
+            @attribute = connection.describe_instance_attribute(:instance_id => server_name,:attribute =>'disableApiTermination')
 
-            msg_pair("Server Name", @server.name)
-            msg_pair("Instance Type", @server.instance_type)
-            msg_pair("Image", @server.image_id)
-            msg_pair("FireWall", @server.groups.join(", "))
-            msg_pair("SSH Key", @server.key_name)
-            msg_pair("Global IP Address", @server.global_ip_address)
-            msg_pair("Private IP Address", @server.private_ip_address)
+            msg_pair("Server Name", @server.instanceId)
+            msg_pair("IP Type", @server.ipType)
+            msg_pair("Global IP Address", (@server.ipAddress.nil? ? '' : @server.ipAddress))
+            msg_pair("Private IP Address", (@server.privateIpAddress.nil? ? '' : @server.privateIpAddress))
+            msg_pair("Private DNS Name", (@server.privateIpAddress.nil? ? '' : @server.privateIpAddress))
+            msg_pair("Instance Type", @server.instanceType)
+            msg_pair("Image", @server.imageId)
+            msg_pair("SSH Key", (@server.keyName.nil? ? '' : @server.keyName))
+            msg_pair("FireWall", (@server.groupSet.nil? ? '' : $server.groupSet.item.first.groupId))
+            state = @server.instanceState.name
+            msg_pair("State", state)
 
             puts "\n"
             confirm("Do you really want to delete this server")
 
-            @server.destroy
+            is_not_deletable = @attribute.disableApiTermination.value
 
-            ui.warn("Deleted server #{@server.name}")
+            if state != 'stopped'
+              connection.stop_instances(:instance_id => @server.instanceId)
+              while state != 'stopped'
+                puts "."
+                @response = connection.describe_instances(:instance_id => @server.instanceId)
+                @server = @response.reservationSet.item.first.instancesSet.item.first
+                state = @server.instanceState.name
+                sleep 5
+              end
+            elsif is_not_deletable != 'false'
+              connection.modify_instance_attribute(:instance_id => @server.instanceId, :attribute => 'disableApiTermination', :value => 'false')
+              while is_not_deletable != 'false'
+                puts "."
+                @attribute = connection.describe_instance_attribute(:instance_id => @server.instanceId,:attribute =>'disableApiTermination')
+                is_not_deletable = @attribute.disableApiTermination.value
+                sleep 5
+              end
+            end
+
+            connection.terminate_instances(:instance_id => @server.instanceId)
+
+            ui.warn("Deleted server #{@server.instanceId}")
 
             if config[:purge]
-              thing_to_delete = config[:chef_node_name] || instance_id
+              thing_to_delete = config[:chef_node_name] || server_name
               destroy_item(Chef::Node, thing_to_delete, "node")
               destroy_item(Chef::ApiClient, thing_to_delete, "client")
             else
-              ui.warn("Corresponding node and client for the #{@server_name} server were not deleted and remain registered with the Chef Server")
+              ui.warn("Corresponding node and client for the #{@server.instanceId} server were not deleted and remain registered with the Chef Server")
             end
-
           rescue NoMethodError
-            ui.error("Could not locate server '#{server_name}'.  Please verify it was provisioned in the availability_zone(EAST/WEST).")
+            ui.error("Could not locate server '#{@server.instanceId}'.  Please verify it was provisioned in the availability_zone(EAST/WEST).")
           end
         end
       end
@@ -101,3 +126,5 @@ class Chef
     end
   end
 end
+
+
