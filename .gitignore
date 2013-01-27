@@ -1,6 +1,5 @@
 .rake_tasks~
-.rbenv
-.rbenv-gemsets
+.rbenv*
 tags
 coverage
 rdoc
