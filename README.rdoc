@@ -1,6 +1,6 @@
-# Knife NiftyCloud
+= Knife NiftyCloud
 
-#このプラグインについて#
+= このプラグインについて:
 
 Chef ServerからNifty Cloudインスタンスの立ち上げや操作をするためのgemです。
 
@@ -16,7 +16,7 @@ AWSを制御するための[knife-ec2](https://github.com/opscode/knife-ec2)をf
 等。
 
 
-#インストール#
+= インストール:
 
 [ニフティクラウド SDK for Ruby](http://cloud.nifty.com/api/sdk/)がインストールされている必要があります。
 
@@ -28,7 +28,7 @@ AWSを制御するための[knife-ec2](https://github.com/opscode/knife-ec2)をf
 
 
 
-# 設定#
+= 設定:
 
 Nifty CloudのコントロールパネルからREST APIのAccessKeyとSecretAccessKeyを[取得してください](http://cloud.nifty.com/api/rest/)。
 
@@ -56,7 +56,7 @@ Nifty CloudのコントロールパネルからREST APIのAccessKeyとSecretAcce
 * distro
 * template_file
 
-## サブコマンド ##
+= サブコマンド:
 
 このプラグインは以下のコマンドをknifeコマンドのサブコマンドとして提供します。
 コマンドのオプションを確認するには<tt>--help</tt>付けてコマンドを実行してください。
@@ -90,7 +90,7 @@ bootstrapはデフォルトでは[ubuntu10.04-gems](https://github.com/opscode/c
 設定されているNifty Cloudアカウント/リージョンで利用可能なサーバイメージ一覧を表示します。
 
 
-#ライセンス#
+= ライセンス:
 
 オリジナルの[knife-ec2](https://github.com/opscode/knife-ec2)に準じてApache Licenseとします。
 
