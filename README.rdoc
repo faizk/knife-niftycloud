@@ -4,10 +4,10 @@
 
 Chef ServerからNifty Cloudインスタンスの立ち上げや操作をするためのgemです。
 
-AWSを制御するための[knife-ec2](https://github.com/opscode/knife-ec2)をforkして作成しています。
+AWSを制御するための{knife-ec2}[https://github.com/opscode/knife-ec2]をforkして作成しています。
 
 
-[ニフティクラウド SDK for Ruby](http://cloud.nifty.com/api/sdk/)が提供するコマンドを直接叩くことと比較してのメリットは以下の通りです。
+{ニフティクラウド SDK for Ruby}[http://cloud.nifty.com/api/sdk/]が提供するコマンドを直接叩くことと比較してのメリットは以下の通りです。
 
 * サーバ立ち上げと同時にChef Serverにnodeとして登録を行う
 * サーバ立ち上げと同時ににbootstrapでChef Clientのインストールを行う
@@ -18,7 +18,7 @@ AWSを制御するための[knife-ec2](https://github.com/opscode/knife-ec2)をf
 
 = インストール:
 
-[ニフティクラウド SDK for Ruby](http://cloud.nifty.com/api/sdk/)がインストールされている必要があります。
+{ニフティクラウド SDK for Ruby}[http://cloud.nifty.com/api/sdk/]がインストールされている必要があります。
 
 インストールされていない場合は自動でインストールを行います。
 
@@ -30,9 +30,9 @@ AWSを制御するための[knife-ec2](https://github.com/opscode/knife-ec2)をf
 
 = 設定:
 
-Nifty CloudのコントロールパネルからREST APIのAccessKeyとSecretAccessKeyを[取得してください](http://cloud.nifty.com/api/rest/)。
+Nifty CloudのコントロールパネルからREST APIのAccessKeyとSecretAccessKeyを{取得してください}[http://cloud.nifty.com/api/rest/]。
 
-`knife.rb`に以下のように取得したAccessKey/SecretAccessKeyと[ニフティクラウドAPIのエンドポイントURL](http://cloud.nifty.com/api/rest/endpoint.htm)を記述します。
+`knife.rb`に以下のように取得したAccessKey/SecretAccessKeyと{ニフティクラウドAPIのエンドポイントURL}[http://cloud.nifty.com/api/rest/endpoint.htm]を記述します。
 
     knife[:nifty_cloud_access_key]  = "Your Nifty Cloud Access Key ID"
     knife[:nifty_cloud_secret_key] = "Your Nifty Cloud Secret Access Key"
@@ -67,7 +67,7 @@ Nifty CloudのコントロールパネルからREST APIのAccessKeyとSecretAcce
 
 bootstrapではChefのインストールを行うため、実行完了後はChef ClientをChef Server上から制御することが可能となります。
 
-bootstrapはデフォルトでは[ubuntu10.04-gems](https://github.com/opscode/chef/blob/master/chef/lib/chef/knife/bootstrap/ubuntu10.04-gems.erb)テンプレートを利用して実行します。
+bootstrapはデフォルトでは{ubuntu10.04-gems}[https://github.com/opscode/chef/blob/master/chef/lib/chef/knife/bootstrap/ubuntu10.04-gems.erb]テンプレートを利用して実行します。
 
 <tt>-d</tt>又は<tt>--template-file</tt>オプションを使用することにより任意のものを指定することも可能です。
 
@@ -92,7 +92,7 @@ bootstrapはデフォルトでは[ubuntu10.04-gems](https://github.com/opscode/c
 
 = ライセンス:
 
-オリジナルの[knife-ec2](https://github.com/opscode/knife-ec2)に準じてApache Licenseとします。
+オリジナルの{knife-ec2}[https://github.com/opscode/knife-ec2]に準じてApache Licenseとします。
 
 License:: Apache License, Version 2.0
 
