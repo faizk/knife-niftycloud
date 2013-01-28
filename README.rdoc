@@ -67,7 +67,7 @@ Nifty CloudのコントロールパネルからREST APIの{AccessKeyとSecretAcc
 
 bootstrapではChefのインストールを行うため、実行完了後はChef ClientをChef Server上から制御することが可能となります。
 
-bootstrapはデフォルトでは{ubuntu10.04-gems}[https://github.com/opscode/chef/blob/master/chef/lib/chef/knife/bootstrap/ubuntu10.04-gems.erb] テンプレートを利用して実行します。
+bootstrapはデフォルトでは{ubuntu10.04-gems}[https://github.com/opscode/chef/blob/master/lib/chef/knife/bootstrap/ubuntu10.04-gems.erb] テンプレートを利用して実行します。
 
 <tt>-d</tt>又は<tt>--template-file</tt>オプションを使用することにより任意のものを指定することも可能です。
 
