@@ -39,22 +39,20 @@ class Chef
       attr_reader :server
 
       option :instance_type,
-        :short => "-it instance_type",
+        :short => "-it INSTANCE_TYPE",
         :long => "--instance-type INSTANCE_TYPE",
         :description => "The Instance Type of server (small2, medium4, etc)",
-        :proc => Proc.new { |f| Chef::Config[:knife][:instance-type] = it }
+        :proc => Proc.new { |it| Chef::Config[:knife][:instance_type] = it }
 
-      option :image,
-        :short => "-I IMAGE",
-        :long => "--image IMAGE",
-        :description => "The VM Image for the server",
-        :proc => Proc.new { |i| Chef::Config[:knife][:image] = i }
+      option :image_id,
+        :short => "-im IMAGE_ID",
+        :long => "--image-id IMAGE_ID",
+        :description => "The Image ID of server(14, 21, etc)"
 
       option :firewall,
-        :short => "-F X,Y,Z",
+        :short => "-f FIREWALL",
         :long => "--firewall X,Y,Z",
-        :description => "The firewall for this server",
-        :proc => Proc.new { |groups| groups.split(',') }
+        :description => "The firewall for this server"
 
       option :chef_node_name,
         :short => "-N NAME",
@@ -65,8 +63,8 @@ class Chef
       option :ssh_key_name,
         :short => "-S KEY",
         :long => "--ssh-key KEY",
-        :description => "The AWS SSH key id",
-        :proc => Proc.new { |key| Chef::Config[:knife][:aws_ssh_key_id] = key }
+        :description => "The Nifty Cloud SSH key name",
+        :proc => Proc.new { |key| Chef::Config[:knife][:ssh_key_name] = key }
 
       option :ssh_user,
         :short => "-x USERNAME",
@@ -79,24 +77,26 @@ class Chef
         :long => "--ssh-password PASSWORD",
         :description => "The ssh password"
 
-      option :ssh_port,
-        :short => "-p PORT",
-        :long => "--ssh-port PORT",
-        :description => "The ssh port",
-        :default => "22",
-        :proc => Proc.new { |key| Chef::Config[:knife][:ssh_port] = key }
-
-      option :ssh_gateway,
-        :short => "-w GATEWAY",
-        :long => "--ssh-gateway GATEWAY",
-        :description => "The ssh gateway server",
-        :proc => Proc.new { |key| Chef::Config[:knife][:ssh_gateway] = key }
-
+      option :ssh_passphrase,
+        :short => "-R PASSPHRASE",
+        :long => "--ssh-passphrase PASSPHRASE",
+        :description => "The ssh passphrase"
 
       option :identity_file,
         :short => "-i IDENTITY_FILE",
         :long => "--identity-file IDENTITY_FILE",
         :description => "The SSH identity file used for authentication"
+
+      option :accounting_type,
+        :short => "-AT ACCOUNTING_TYPE",
+        :long => "--accounting-type ACCOUNTING_TYPE",
+        :description => "The Nifty Cloud ACCOUNTING_TYPE(monthly=1, cap=2)",
+        :proc => Proc.new { |at| Chef::Config[:knife][:accounting_type] = at }
+
+      option :ip_type,
+        :short => "-IP IP_TYPE",
+        :long => "--ip-type IP_TYPE",
+        :description => "The Nifty Cloud IP_TYPE(static,dynamic)"
 
       option :prerelease,
         :long => "--prerelease",
@@ -119,10 +119,6 @@ class Chef
         :proc => Proc.new { |t| Chef::Config[:knife][:template_file] = t },
         :default => false
 
-      option :disk_size,
-        :long => "--disk-size SIZE",
-        :description => "The size of the Extra Disk volume in GB"
-
       option :run_list,
         :short => "-r RUN_LIST",
         :long => "--run-list RUN_LIST",
@@ -134,12 +130,6 @@ class Chef
         :long => "--json-attributes JSON",
         :description => "A JSON string to be added to the first run of chef-client",
         :proc => lambda { |o| JSON.parse(o) }
-
-      option :subnet_id,
-        :short => "-s SUBNET-ID",
-        :long => "--subnet SUBNET-ID",
-        :description => "create node in this Virtual Private Cloud Subnet ID (implies VPC mode)",
-        :proc => Proc.new { |key| Chef::Config[:knife][:subnet_id] = key }
 
       option :host_key_verify,
         :long => "--[no-]host-key-verify",
@@ -155,12 +145,6 @@ class Chef
            name, path = h.split("=")
            Chef::Config[:knife][:hints][name] = path ? JSON.parse(::File.read(path)) : Hash.new
         }
-
-      option :ephemeral,
-        :long => "--ephemeral EPHEMERAL_DEVICES",
-        :description => "Comma separated list of device locations (eg - /dev/sdb) to map ephemeral devices",
-        :proc => lambda { |o| o.split(/[\s,]+/) },
-        :default => []
 
       def tcp_test_ssh(hostname, ssh_port)
         tcp_socket = TCPSocket.new(hostname, ssh_port)
@@ -186,35 +170,22 @@ class Chef
 
         validate!
 
-        @server = connection.servers.create(create_server_def)
-
-        hashed_tags={}
-        tags.map{ |t| key,val=t.split('='); hashed_tags[key]=val} unless tags.nil?
-
-        # Always set the Name tag
-        unless hashed_tags.keys.include? "Name"
-          hashed_tags["Name"] = locate_config_value(:chef_node_name) || @server.id
+        @response = connection.run_instances(create_server_def)
+        @server = @response.instancesSet.item.first
+        state = @server.instanceState.name
+        while state != 'running'
+          puts "."
+          @response = connection.describe_instances(:instance_id => locate_config_value(:chef_node_name))
+          @server = @response.reservationSet.item.first.instancesSet.item.first
+          state = @server.instanceState.name
+          sleep 5
         end
 
-        hashed_tags.each_pair do |key,val|
-          connection.tags.create :key => key, :value => val, :resource_id => @server.id
-        end
-
-        msg_pair("Server Name", @server.name)
-        msg_pair("Instance Type", @server.instance_type)
-        msg_pair("Image", @server.image_id)
-
-        # If we don't specify a security group or security group id, Fog will
-        # pick the appropriate default one. In case of a VPC we don't know the
-        # default security group id at this point unless we look it up, hence
-        # 'default' is printed if no id was specified.
-        printed_security_groups = "default"
-        printed_security_groups = @server.groups.join(", ") if @server.groups
-        msg_pair("FireWall", printed_firewall) unless vpc_mode? or (@server.groups.nil)
-
-        printed_security_group_ids = "default"
-
-        msg_pair("SSH Key", @server.key_name)
+        msg_pair("Server Name", @server.instanceId)
+        msg_pair("Instance Type", @server.instanceType)
+        msg_pair("Image", @server.imageId)
+        msg_pair("FireWall", (@server.groupSet.nil? ? '' : @server.groupSet.item.first.groupId))
+        msg_pair("SSH Key", @server.keyName)
 
         print "\n#{ui.color("Waiting for server", :magenta)}"
 
@@ -223,27 +194,29 @@ class Chef
 
         puts("\n")
 
-        msg_pair("Public DNS Name", @server.dns_name)
-        msg_pair("Global IP Address", @server.public_ip_address)
+        msg_pair("Private DNS Name", @server.privateDnsName)
+        msg_pair("Global IP Address", @server.ipAddress)
+        msg_pair("Private IP Address", @server.privateIpAddress)
 
-        msg_pair("Private IP Address", @server.private_ip_address)
+        ssh_ip_address = config[:ssh_locally] ? @server.privateIpAddress : @server.ipAddress
 
         print "\n#{ui.color("Waiting for sshd", :magenta)}"
 
-        wait_for_sshd(ssh_connect_host)
+        print(".") until tcp_test_ssh(ssh_ip_address) {
+          sleep @initial_sleep_delay ||= 10
+          puts("done")
+        }
 
-        bootstrap_for_node(@server,ssh_connect_host).run
+        bootstrap_for_node(@server,ssh_ip_address).run
 
         puts "\n"
-        msg_pair("Server Name", @server.name)
-        msg_pair("Instance Type", @server.instance_type)
-        msg_pair("Image", @server.image_id)
-        msg_pair("Firewall", printed_security_groups) unless vpc_mode? or (@server.groups.nil? and @server.security_group_ids)
+        msg_pair("Server Name", @server.instanceId)
+        msg_pair("Instance Type", @server.instanceType)
+        msg_pair("Image", @server.imageId)
+        msg_pair("Firewall", (@server.groupSet.nil? ? '' : $server.groupSet.item.first.groupId))
         msg_pair("SSH Key", @server.key_name)
-
-        msg_pair("Global IP Address", @server.public_ip_address)
-
-        msg_pair("Private IP Address", @server.private_ip_address)
+        msg_pair("Global IP Address", @server.ipAddress)
+        msg_pair("Private IP Address", @server.privateIpAddress)
         msg_pair("Environment", config[:environment] || '_default')
         msg_pair("Run List", (config[:run_list] || []).join(', '))
         msg_pair("JSON Attributes",config[:json_attributes]) unless !config[:json_attributes] || config[:json_attributes].empty?
@@ -254,6 +227,8 @@ class Chef
         bootstrap.name_args = [ssh_host]
         bootstrap.config[:run_list] = locate_config_value(:run_list) || []
         bootstrap.config[:ssh_user] = config[:ssh_user]
+        bootstrap.config[:ssh_password] = config[:ssh_password]
+        bootstrap.config[:ssh_passphrase] = config[:ssh_passphrase]
         bootstrap.config[:ssh_port] = config[:ssh_port]
         bootstrap.config[:ssh_gateway] = config[:ssh_gateway]
         bootstrap.config[:identity_file] = config[:identity_file]
@@ -261,8 +236,18 @@ class Chef
         bootstrap.config[:prerelease] = config[:prerelease]
         bootstrap.config[:bootstrap_version] = locate_config_value(:bootstrap_version)
         bootstrap.config[:first_boot_attributes] = locate_config_value(:json_attributes) || {}
-        bootstrap.config[:distro] = locate_config_value(:distro) || "chef-full"
-        bootstrap.config[:use_sudo] = true unless config[:ssh_user] == 'root'
+        case server.imageId
+        when 1..14
+          distro = 'centos5-gems'
+        when 17
+          distro = 'centos5-gems'
+        when 21
+          distro = 'centos5-gems'
+        else
+          distro = 'centos5-gems'
+        end
+        bootstrap.config[:distro] = distro
+        bootstrap.config[:use_sudo] = false
         bootstrap.config[:template_file] = locate_config_value(:template_file)
         bootstrap.config[:environment] = config[:environment]
         # Modify global configuration state to ensure hint gets set by
@@ -272,86 +257,61 @@ class Chef
         bootstrap
       end
 
-      def ami
-        @ami ||= connection.images.get(locate_config_value(:image))
+      def image
+        @image ||= connection.describe_images(locate_config_value(:image_id))
       end
 
       def validate!
 
-        super([:image, :aws_ssh_key_id, :aws_access_key_id, :aws_secret_access_key])
+        super([:ssh_key_name, :nifty_cloud_access_key, :nifty_cloud_secret_key])
 
-        if ami.nil?
-          ui.error("You have not provided a valid image (AMI) value.  Please note the short option for this value recently changed from '-i' to '-I'.")
+        if image.nil?
+          ui.error("You have not provided a valid image value.  Please note the short option for this value recently changed from '-i' to '-I'.")
           exit 1
         end
-
-        if vpc_mode? and !!config[:security_groups]
-          ui.error("You are using a VPC, security groups specified with '-G' are not allowed, specify one or more security group ids with '-g' instead.")
-          exit 1
-        end
-
       end
 
       def create_server_def
         server_def = {
-          :image_id => locate_config_value(:image),
-          :groups => config[:security_groups],
-          :flavor_id => locate_config_value(:flavor),
-          :key_name => Chef::Config[:knife][:aws_ssh_key_id],
-          :availability_zone => locate_config_value(:availability_zone)
+          :image_id => locate_config_value(:image_id),
+          :key_name => Chef::Config[:knife][:ssh_key_name],
+          :security_group => locate_config_value(:firewall),
+          :instance_type => locate_config_value(:instance_type),
+          :disable_api_termination => false,
+          :accounting_type => locate_config_value(:accounting_type),
+          :instance_id => locate_config_value(:chef_node_name),
+          :admin       => locate_config_value(:ssh_user),
+          :password    => locate_config_value(:ssh_password),
+          :ip_type     => locate_config_value(:ip_type)
         }
-        server_def[:subnet_id] = locate_config_value(:subnet_id) if vpc_mode?
+        server_def
+      end
 
-        if Chef::Config[:knife][:aws_user_data]
-          begin
-            server_def.merge!(:user_data => File.read(Chef::Config[:knife][:aws_user_data]))
-          rescue
-            ui.warn("Cannot read #{Chef::Config[:knife][:aws_user_data]}: #{$!.inspect}. Ignoring option.")
-          end
+      def tcp_test_ssh(hostname)
+        tcp_socket = TCPSocket.new(hostname, 22)
+        readable = IO.select([tcp_socket], nil, nil, 5)
+        if readable
+          Chef::Log.debug("sshd accepting connections on #{hostname}, banner is #{tcp_socket.gets}")
+          yield
+          true
+        else
+          false
         end
-      end
-
-      def wait_for_sshd(hostname)
-        config[:ssh_gateway] ? wait_for_tunnelled_sshd(hostname) : wait_for_direct_sshd(hostname, config[:ssh_port])
-      end
-
-      def wait_for_tunnelled_sshd(hostname)
-        print(".")
-        print(".") until tunnel_test_ssh(ssh_connect_host) {
-          sleep @initial_sleep_delay ||= (vpc_mode? ? 40 : 10)
-          puts("done")
-        }
-      end
-
-      def tunnel_test_ssh(hostname, &block)
-        gw_host, gw_user = config[:ssh_gateway].split('@').reverse
-        gw_host, gw_port = gw_host.split(':')
-        gateway = Net::SSH::Gateway.new(gw_host, gw_user, :port => gw_port || 22)
-        status = false
-        gateway.open(hostname, config[:ssh_port]) do |local_tunnel_port|
-          status = tcp_test_ssh('localhost', local_tunnel_port, &block)
-        end
-        status
-      rescue SocketError, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH, IOError
+      rescue SocketError
         sleep 2
         false
-      rescue Errno::EPERM, Errno::ETIMEDOUT
+      rescue Errno::ETIMEDOUT
         false
-      end
-
-      def wait_for_direct_sshd(hostname, ssh_port)
-        print(".") until tcp_test_ssh(ssh_connect_host, ssh_port) {
-          sleep @initial_sleep_delay ||= (vpc_mode? ? 40 : 10)
-          puts("done")
-        }
-      end
-
-      def ssh_connect_host
-        @ssh_connect_host ||= if config[:server_connect_attribute]
-          server.send(config[:server_connect_attribute])
-        else
-          vpc_mode? ? server.private_ip_address : server.dns_name
-        end
+      rescue Errno::EPERM
+        false
+      rescue Errno::ECONNREFUSED
+        sleep 2
+        false
+      rescue Errno::EHOSTUNREACH
+        sleep 2
+        false
+      ensure
+        tcp_socket && tcp_socket.close
       end
     end
   end
