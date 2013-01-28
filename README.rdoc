@@ -1,71 +1,99 @@
-= Knife NiftyCloud
+# Knife NiftyCloud
+
+#このプラグインについて#
+
+Chef ServerからNifty Cloudインスタンスの立ち上げや操作をするためのgemです。
+
+AWSを制御するための[knife-ec2](https://github.com/opscode/knife-ec2)をforkして作成しています。
 
 
-= INSTALLATION:
+[ニフティクラウド SDK for Ruby](http://cloud.nifty.com/api/sdk/)が提供するコマンドを直接叩くことと比較してのメリットは以下の通りです。
 
-Be sure you are running the latest version Chef. Versions earlier than 0.10.0 don't support plugins:
+* サーバ立ち上げと同時にChef Serverにnodeとして登録を行う
+* サーバ立ち上げと同時ににbootstrapでChef Clientのインストールを行う
+* 例えばNifty Cloudのサーバを削除したい場合、stop→APIからの削除を許可→削除という手順を踏む必要があるが、一連の操作を自動で行う。
+
+等。
+
+
+#インストール#
+
+[ニフティクラウド SDK for Ruby](http://cloud.nifty.com/api/sdk/)がインストールされている必要があります。
+
+インストールされていない場合は自動でインストールを行います。
 
     gem install chef
 
-This plugin is distributed as a Ruby Gem. To install it, run:
-
     gem install knife-niftycloud
 
-Depending on your system's configuration, you may need to run this command with root privileges.
 
-= CONFIGURATION:
 
-In order to communicate with the Nifty Cloud API you will have to tell Knife about your AWS Access Key and Secret Access Key.  The easiest way to accomplish this is to create some entries in your <tt>knife.rb</tt> file:
+# 設定#
 
-    knife[:aws_access_key_id]  = "Your AWS Access Key ID"
-    knife[:aws_secret_access_key] = "Your AWS Secret Access Key"
+Nifty CloudのコントロールパネルからREST APIのAccessKeyとSecretAccessKeyを[取得してください](http://cloud.nifty.com/api/rest/)。
 
-If your knife.rb file will be checked into a SCM system (ie readable by others) you may want to read the values from environment variables:
+`knife.rb`に以下のように取得したAccessKey/SecretAccessKeyと[ニフティクラウドAPIのエンドポイントURL](http://cloud.nifty.com/api/rest/endpoint.htm)を記述します。
 
-    knife[:aws_access_key_id] = "#{ENV['AWS_ACCESS_KEY_ID']}"
-    knife[:aws_secret_access_key] = "#{ENV['AWS_SECRET_ACCESS_KEY']}"
+    knife[:nifty_cloud_access_key]  = "Your Nifty Cloud Access Key ID"
+    knife[:nifty_cloud_secret_key] = "Your Nifty Cloud Secret Access Key"
+    knife[:nifty_cloud_endpoint_url] = "https://west-1.cp.cloud.nifty.com/api/"
 
-You also have the option of passing your AWS API Key/Secret into the individual knife subcommands using the <tt>-A</tt> (or <tt>--aws-access-key-id</tt>) <tt>-K</tt> (or <tt>--aws-secret-access-key</tt>) command options
+`knife.rb`がSCMに登録されていてAccessKey/SecretAccessKeyをknife.rbに記述したくない場合には、環境変数に登録することも可能です。
 
-    # provision a new m1.small Ubuntu 10.04 webserver
-    knife niftycloud server create -r 'role[webserver]' -I ami-7000f019 -f m1.small -A 'Your AWS Access Key ID' -K "Your AWS Secret Access Key"
+    knife[:nifty_cloud_access_key] = "#{ENV['NIFTY_CLOUD_ACCESS_KEY']}"
+    knife[:nifty_cloud_secret_key] = "#{ENV['NIFTY_CLOUD_SECRET_KEY']}"
 
-Additionally the following options may be set in your `knife.rb`:
+各サブコマンド実行時に以下のように<tt>-A</tt> (or <tt>--nifty-cloud-access-key</tt>) <tt>-K</tt> (or <tt>--nifty-cloud-secret-key</tt>)オプションとして指定することも可能です。
 
-* flavor
+    # webserverロールのサーバをCentOS 6.2 64bit Plain/small2で立ち上げる場合
+    knife niftycloud server create -r 'role[webserver]' -IM 21 -f small -A “Your Nifty Cloud Access Key ID“ -K "Your Nifty Cloud Secret Access Key"
+
+
+`knife.rb`には以下のオプションを設定することも可能です。
+
 * image
-* availability_zone
-* aws_ssh_key_id
-* region
+* nifty_cloud_ssh_key_id
 * distro
 * template_file
 
-= SUBCOMMANDS:
+## サブコマンド ##
 
-This plugin provides the following Knife subcommands.  Specific command options can be found by invoking the subcommand with a <tt>--help</tt> flag
+このプラグインは以下のコマンドをknifeコマンドのサブコマンドとして提供します。
+コマンドのオプションを確認するには<tt>--help</tt>付けてコマンドを実行してください。
 
 == knife niftycloud server create
 
-Provisions a new server in the Nifty Cloud and then perform a Chef bootstrap (using the SSH protocol).  The goal of the bootstrap is to get Chef installed on the target system so it can run Chef Client with a Chef Server. The main assumption is a baseline OS installation exists (provided by the provisioning). It is primarily intended for Chef Client systems that talk to a Chef server.  By default the server is bootstrapped using the {ubuntu10.04-gems}[https://github.com/opscode/chef/blob/master/chef/lib/chef/knife/bootstrap/ubuntu10.04-gems.erb] template.  This can be overridden using the <tt>-d</tt> or <tt>--template-file</tt> command options.
+設定されているNifty Cloudアカウント/リージョン上にサーバを新規で立ち上げ、その後対象サーバにSSH接続を行ってChefのbootstrapを実行します。
+
+bootstrapではChefのインストールを行うため、実行完了後はChef ClientをChef Server上から制御することが可能となります。
+
+bootstrapはデフォルトでは[ubuntu10.04-gems](https://github.com/opscode/chef/blob/master/chef/lib/chef/knife/bootstrap/ubuntu10.04-gems.erb)テンプレートを利用して実行します。
+
+<tt>-d</tt>又は<tt>--template-file</tt>オプションを使用することにより任意のものを指定することも可能です。
 
 == knife niftycloud server delete
 
-Deletes an existing server in the currently configured AWS account.  <b>PLEASE NOTE</b> - By default, this does not delete the associated node and client objects from the Chef server.  To do so, add the <tt>--purge</tt> flag.
+設定されているNifty Cloudアカウント/リージョン上の指定されたサーバを削除します。
+
+<b>注意</b> デフォルトではChef Serverからのnodeとclient objectsの削除は行いません。
+
+もしChef Serverからも削除したい場合には<tt>--purge</tt>オプションを指定して実行してください。
 
 == knife niftycloud server list
 
-Outputs a list of all servers in the currently configured AWS account.  <b>PLEASE NOTE</b> - this shows all instances associated with the account, some of which may not be currently managed by the Chef server.
+設定されているNifty Cloudアカウント/リージョンに登録されているのサーバ一覧を表示します。
 
-== knife niftycloud instance data
+<b>注意</b> Chefサーバに登録されていないサーバも含めての表示となります。
 
-Generates instance metadata in meant to be used with Opscode's custom AMIs. This will read your knife configuration <tt>~/.chef/knife.rb</tt> for the validation certificate and Chef server URL to use and output in JSON format. The subcommand also accepts a list of roles/recipes that will be in the node's initial run list.
+== knife niftycloud image list
 
-<b>PLEASE NOTE</b> - Using Opscode's custom AMIs reflect an older way of launching instances in Nifty Cloud for Chef and should be considered DEPRECATED. Leveraging this plugins's <tt>knife niftycloud server create</tt> subcommands with a base AMIs directly from your Linux distribution (ie Ubuntu AMIs from Canonical) is much preferred and more flexible.  Although this subcommand will remain, the Opscode custom AMIs are currently out of date.
+設定されているNifty Cloudアカウント/リージョンで利用可能なサーバイメージ一覧を表示します。
 
 
-= LICENSE:
+#ライセンス#
 
-Author:: Satoshi Akama(<satoshiakama@gmail.com>)
+オリジナルの[knife-ec2](https://github.com/opscode/knife-ec2)に準じてApache Licenseとします。
+
 License:: Apache License, Version 2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
