@@ -7,7 +7,7 @@ Chef ServerからNifty Cloudインスタンスの立ち上げや操作をする�
 AWSを制御するための{knife-ec2}[https://github.com/opscode/knife-ec2] をforkして作成しています。
 
 
-{ニフティクラウド SDK for Ruby}[http://cloud.nifty.com/api/sdk/] が提供するコマンドを直接叩くことと比較してのメリットは以下の通りです。
+{ニフティクラウド SDK for Ruby}[http://cloud.nifty.com/api/sdk/] が提供するコマンドを直接叩くこと比較してのメリットは以下の通りです。
 
 * サーバ立ち上げと同時にChef Serverにnodeとして登録を行う
 * サーバ立ち上げと同時ににbootstrapでChef Clientのインストールを行う
@@ -36,7 +36,7 @@ Nifty CloudのコントロールパネルからREST APIの{AccessKeyとSecretAcc
 
     knife[:nifty_cloud_access_key]  = "Your Nifty Cloud Access Key ID"
     knife[:nifty_cloud_secret_key] = "Your Nifty Cloud Secret Access Key"
-    knife[:nifty_cloud_endpoint_url] = "https://west-1.cp.cloud.nifty.com/api/"
+    knife[:nifty_cloud_endpoint_url] = "https://east-1.cp.cloud.nifty.com/api/"
 
 `knife.rb`がSCMに登録されていてAccessKeyとSecretAccessKeyをknife.rbに記述したくない場合には、環境変数に登録することも可能です。
 
@@ -46,20 +46,27 @@ Nifty CloudのコントロールパネルからREST APIの{AccessKeyとSecretAcc
 各サブコマンド実行時に以下のように<tt>-A</tt> (or <tt>--nifty-cloud-access-key</tt>) <tt>-K</tt> (or <tt>--nifty-cloud-secret-key</tt>)オプションとして指定することも可能です。
 
     # webserverロールのサーバをCentOS 6.2 64bit Plain/small2で立ち上げる場合
-    knife niftycloud server create -r 'role[webserver]' -IM 21 -f small -A “Your Nifty Cloud Access Key ID“ -K "Your Nifty Cloud Secret Access Key"
+    knife niftycloud server create -r 'role[webserver]' -IM 21 -f small2 -A “Your Nifty Cloud Access Key ID“ -K "Your Nifty Cloud Secret Access Key"
 
 
 `knife.rb`には以下のオプションを設定することも可能です。
 
-* image
-* nifty_cloud_ssh_key_id
-* distro
-* template_file
+    #インスタンスタイプ
+    knife[:instance_type]
+    #サーバイメージID
+    knife[:image_id]
+    #サーバ接続用SSHキー名
+    knife[:ssh_key_name]
+    #課金タイプ(月額課金=1、従量課金=2)
+    knife[:accounting_type]
+    #bootstrap用テンプレートファイル
+    knife[:template_file]
+
 
 = サブコマンド:
 
 このプラグインは以下のコマンドをknifeコマンドのサブコマンドとして提供します。
-コマンドのオプションを確認するには<tt>--help</tt>付けてコマンドを実行してください。
+コマンドのオプションを確認するには<tt>--help</tt>オプションを付けてコマンドを実行してください。
 
 == knife niftycloud server create
 
@@ -67,7 +74,7 @@ Nifty CloudのコントロールパネルからREST APIの{AccessKeyとSecretAcc
 
 bootstrapではChefのインストールを行うため、実行完了後はChef ClientをChef Server上から制御することが可能となります。
 
-bootstrapはデフォルトでは{ubuntu10.04-gems}[https://github.com/opscode/chef/blob/master/lib/chef/knife/bootstrap/ubuntu10.04-gems.erb] テンプレートを利用して実行します。
+bootstrapはデフォルトでは {ubuntu10.04-gems}[https://github.com/opscode/chef/blob/master/lib/chef/knife/bootstrap/ubuntu10.04-gems.erb] テンプレートを利用して実行します。
 
 <tt>-d</tt>又は<tt>--template-file</tt>オプションを使用することにより任意のものを指定することも可能です。
 
@@ -81,7 +88,7 @@ bootstrapはデフォルトでは{ubuntu10.04-gems}[https://github.com/opscode/c
 
 == knife niftycloud server list
 
-設定されているNifty Cloudアカウント/リージョンに登録されているのサーバ一覧を表示します。
+設定されているNifty Cloudアカウント/リージョンに登録されているサーバ一覧を表示します。
 
 <b>注意</b> Chefサーバに登録されていないサーバも含めての表示となります。
 
@@ -89,6 +96,9 @@ bootstrapはデフォルトでは{ubuntu10.04-gems}[https://github.com/opscode/c
 
 設定されているNifty Cloudアカウント/リージョンで利用可能なサーバイメージ一覧を表示します。
 
+= サーバイメージIDについて:
+
+knife nifty cloud image listコマンドの実行結果で表示されるimageIDを指定して下さい。
 
 = ライセンス:
 
