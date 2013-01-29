@@ -80,7 +80,8 @@ class Chef
       option :ssh_passphrase,
         :short => "-R PASSPHRASE",
         :long => "--ssh-passphrase PASSPHRASE",
-        :description => "The ssh passphrase"
+        :description => "The ssh passphrase",
+        :proc => Proc.new { |key| Chef::Config[:knife][:ssh_passphrase] = key }
 
       option :identity_file,
         :short => "-i IDENTITY_FILE",
@@ -146,8 +147,8 @@ class Chef
            Chef::Config[:knife][:hints][name] = path ? JSON.parse(::File.read(path)) : Hash.new
         }
 
-      def tcp_test_ssh(hostname, ssh_port)
-        tcp_socket = TCPSocket.new(hostname, ssh_port)
+      def tcp_test_ssh(hostname)
+        tcp_socket = TCPSocket.new(hostname, 22)
         readable = IO.select([tcp_socket], nil, nil, 5)
         if readable
           Chef::Log.debug("sshd accepting connections on #{hostname}, banner is #{tcp_socket.gets}")
@@ -232,7 +233,7 @@ class Chef
         bootstrap.config[:ssh_port] = config[:ssh_port]
         bootstrap.config[:ssh_gateway] = config[:ssh_gateway]
         bootstrap.config[:identity_file] = config[:identity_file]
-        bootstrap.config[:chef_node_name] = locate_config_value(:chef_node_name) || server.id
+        bootstrap.config[:chef_node_name] = locate_config_value(:chef_node_name) || server.instanceId
         bootstrap.config[:prerelease] = config[:prerelease]
         bootstrap.config[:bootstrap_version] = locate_config_value(:bootstrap_version)
         bootstrap.config[:first_boot_attributes] = locate_config_value(:json_attributes) || {}
