@@ -24,7 +24,9 @@ AWSを制御するための{knife-ec2}[https://github.com/opscode/knife-ec2] を
 
     gem install chef
 
-    gem install knife-niftycloud
+    #まだrubygems.orgに登録していないので自分でビルドしてインストール
+    gem build /path/to/knife-niftycloud.gemspec
+    gem install --local /path/to/knife-niftycloud-0.1.gem
 
 
 
