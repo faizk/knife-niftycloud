@@ -1,6 +1,6 @@
 module Knife
   module Niftycloud
-    VERSION = "0.1"
+    VERSION = "0.1.1"
     MAJOR, MINOR, TINY = VERSION.split('.')
   end
 end

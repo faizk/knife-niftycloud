@@ -259,7 +259,7 @@ class Chef
       end
 
       def image
-        @image ||= connection.describe_images(locate_config_value(:image_id))
+        @image ||= connection.describe_images(:image_id => locate_config_value(:image_id))
       end
 
       def validate!

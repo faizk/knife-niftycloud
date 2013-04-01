@@ -4,5 +4,6 @@ source "http://rubygems.org"
 gemspec
 
 group :development do
+  gem 'chef', '>= 0.10.6'
   gem 'rspec', '~> 2.7.0'
 end
