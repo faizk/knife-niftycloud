@@ -237,17 +237,16 @@ class Chef
         bootstrap.config[:prerelease] = config[:prerelease]
         bootstrap.config[:bootstrap_version] = locate_config_value(:bootstrap_version)
         bootstrap.config[:first_boot_attributes] = locate_config_value(:json_attributes) || {}
-        case server.imageId
-        when 1..14
-          distro = 'centos5-gems'
+        bootstrap.config[:distro] = case server.imageId
+        when 1..14 then
+          'centos5-gems'
         when 17
-          distro = 'centos5-gems'
+          'centos5-gems'
         when 21
-          distro = 'centos5-gems'
+          'centos5-gems'
         else
-          distro = 'centos5-gems'
+          locate_config_value(:distro) || 'chef-full'
         end
-        bootstrap.config[:distro] = distro
         bootstrap.config[:use_sudo] = false
         bootstrap.config[:template_file] = locate_config_value(:template_file)
         bootstrap.config[:environment] = config[:environment]
